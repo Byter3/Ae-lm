@@ -1,0 +1,47 @@
+# Credentials and local configuration.
+.env
+.env.*
+!.env.example
+secrets/
+auth.json
+*.pem
+*.key
+*.p12
+*.pfx
+
+# Private project files, conversation archives and assets.
+*.aep
+*.aepx
+*.aet
+*.aep.json
+*.aepx.json
+.aelm/
+.houlm/
+private/
+media/
+footage/
+renders/
+screenshots/
+backups/
+data/
+*.log
+*.db
+*.sqlite
+*.sqlite3
+
+# Generated output and local tooling.
+dist/
+build/
+.test-artifacts/
+node_modules/
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage
+coverage/
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
