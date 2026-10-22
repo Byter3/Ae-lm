@@ -4,7 +4,7 @@ Ae-lm is currently an implementation starting point. It has no runtime, installa
 
 ## Scope
 
-This repository owns the After Effects client. The existing Houdini client remains in [Hou-lm](https://github.com/Byter3/Hou-lm). Backend deployment examples remain there while both clients can use the same configured service. There is no shared executable core dependency.
+This repository owns the After Effects client. The existing Houdini client remains in [Hou-lm](https://github.com/Byter3/Hou-lm). The separate [studio-assistant-backend](https://github.com/Byter3/studio-assistant-backend) repository owns deployment examples and the optional gateway adapter; both clients can use the same configured service. There is no shared executable core dependency.
 
 Start with [architecture](docs/architecture.md) and the [first milestone](docs/first-milestone.md). Confirm the installed host version and available official integration APIs before selecting technology or adding dependencies.
 

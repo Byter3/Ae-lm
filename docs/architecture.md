@@ -8,7 +8,7 @@ Decision: 22 October 2026. Status: accepted structure, host implementation pendi
 | --- | --- |
 | Hou-lm | Houdini panel lifecycle, HOM tools, Python execution, HIP history, client packaging and Houdini acceptance |
 | Ae-lm | After Effects interface, project/composition/layer tools, host scripting, project history, client packaging and AE acceptance |
-| Studio service | Existing Open WebUI authentication/model access, optionally using LiteLLM for provider routing |
+| [studio-assistant-backend](https://github.com/Byter3/studio-assistant-backend) | Open WebUI/LiteLLM stack example, server setup, optional gateway adapter and backend tests |
 
 Each client will execute tool requests only in its own host process. The studio backend performs model inference/routing; it does not gain a new workstation command endpoint from this repository split. A shared studio model alias does not share local conversations or approvals between clients.
 
@@ -22,11 +22,11 @@ Reference implementation: [Hou-lm v0.1.0](https://github.com/Byter3/Hou-lm/tree/
 
 Do not copy the Houdini panel into an AE runtime. Hou-lm's tool protocol imports host inspection/help, its model context reducer recognizes Houdini tool names and node/cook fields, and its history store assumes HIP filenames. These are application-specific boundaries even when individual functions appear generic.
 
-Any later reuse must have a demonstrated common interface, explicit versioning, tests in both applications and packaged dependencies. No application may require a sibling checkout, an unpinned source download, or an artist-run package manager. A third shared-core repository is deferred until that evidence exists.
+Any later reuse must have a demonstrated common interface, explicit versioning, tests in both applications and packaged dependencies. No application may require a sibling checkout, an unpinned source download, or an artist-run package manager. A shared client-core repository is deferred until that evidence exists.
 
 ## Backend ownership
 
-Use the studio's existing Open WebUI base URL and user account. The [server examples](https://github.com/Byter3/Hou-lm/blob/v0.1.0/docs/server-setup.md) and [optional gateway adapter](https://github.com/Byter3/Hou-lm/tree/v0.1.0/gateway) currently remain canonical in Hou-lm. Ae-lm does not duplicate a Compose stack, ship master/provider keys or deploy a second backend.
+Use the studio's existing Open WebUI base URL and user account. The [server examples](https://github.com/Byter3/studio-assistant-backend/blob/main/docs/server-setup.md) and [optional gateway adapter](https://github.com/Byter3/studio-assistant-backend/tree/main/gateway) are maintained in studio-assistant-backend. Ae-lm does not duplicate a Compose stack, ship master/provider keys or deploy a second backend. The backend repository is the server deployment project, not the deferred shared client-code library.
 
 The initial protocol target is the Open WebUI model list and chat-completion/tool-call interface already used by Hou-lm. Implement and verify it in the chosen AE client environment using synthetic fixtures. Preserve each application's tool names and host-specific instruction set; do not make the server reinterpret Houdini tools as After Effects operations.
 

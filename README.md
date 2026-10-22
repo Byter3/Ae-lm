@@ -10,7 +10,7 @@ Ae-lm owns the After Effects interface, project/composition/layer tools, script 
 
 Both clients are intended to use the same studio-managed Open WebUI service, optionally backed by LiteLLM. Artists use their own account and permitted models. Each client executes tools only in its own host application. Installing one plug-in will not require installing the other.
 
-The initial shared asset is a set of [assistant conventions](docs/assistant-conventions.md), not an executable shared library. No third core repository, submodule or cross-repository runtime dependency has been introduced. Shared code will be extracted only when both working clients demonstrate a useful common interface.
+The initial shared asset is a set of [assistant conventions](docs/assistant-conventions.md), not an executable shared library. No shared client-core repository, submodule or cross-repository runtime dependency has been introduced. Shared code will be extracted only when both working clients demonstrate a useful common interface.
 
 ## First milestone
 
@@ -28,7 +28,7 @@ See [the milestone and test prompts](docs/first-milestone.md). Inspection, revie
 - [Contributing](CONTRIBUTING.md): staged development and validation.
 - [Security](SECURITY.md): execution and project-data boundaries.
 
-Backend setup examples currently remain in [Hou-lm's server guide](https://github.com/Byter3/Hou-lm/blob/v0.1.0/docs/server-setup.md). A working studio service can be reused; this scaffold does not deploy or modify a server. The optional compatibility adapter in Hou-lm is separately versioned and is not required by the repository structure.
+The shared [studio-assistant-backend](https://github.com/Byter3/studio-assistant-backend) repository owns the Open WebUI/LiteLLM stack example, setup guide and optional streaming adapter. A working studio service can be reused; this scaffold does not deploy or modify a server. Backend deployment and client releases remain independent.
 
 ## License
 
