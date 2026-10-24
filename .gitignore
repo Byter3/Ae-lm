@@ -8,6 +8,8 @@ auth.json
 *.key
 *.p12
 *.pfx
+.aelm-settings.json
+*.dpapi
 
 # Private project files, conversation archives and assets.
 *.aep
@@ -28,6 +30,9 @@ data/
 *.db
 *.sqlite
 *.sqlite3
+*.pml
+*.pmc
+*.dmp
 
 # Generated output and local tooling.
 dist/

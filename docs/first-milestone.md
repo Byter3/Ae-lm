@@ -1,6 +1,6 @@
 # First working milestone
 
-Status: planned; no After Effects runtime is implemented yet.
+Status: implemented in unsigned development preview `0.1.0-dev.1`. The artist confirmed panel loading and a live model/inspection exchange; a separate native host fixture passed on Windows AE 25.1x68. The complete reviewed-edit and saved-conversation workflow still needs native acceptance. See [validation](validation.md).
 
 The milestone is a complete small interaction: read the active composition, review and apply one change, show the exact command/result, and resume its saved conversation without replay. The generic host scripting path should support the edit; do not hardcode these prompts as product recipes.
 
@@ -17,7 +17,7 @@ Credential protection, service connectivity, installation technology and the AE 
 
 ## Acceptance prompts
 
-Run only after the implementation exists, using a disposable project and an active composition with at least one layer.
+Run after installing the preview when it is safe to save and close existing AE work. Use a disposable project and an active composition with at least one layer. There is no need to interrupt an existing artist session to run these prompts now.
 
 ### Read-only inspection
 
@@ -26,6 +26,12 @@ Run only after the implementation exists, using a disposable project and an acti
 Expected: a live read receipt, values matching the host and no edit/render. Layer types must be based on the installed API, not guessed labels.
 
 ### Exact result recall
+
+To check item classification and composition discovery when nothing is selected:
+
+> Inspect the project items and report their IDs and types. Find the existing main composition by its ID even if it is inactive, then report its layer count and the first five layer names and types. Do not modify anything, render or preview.
+
+Expected: compositions, folders and footage have distinct types; a composition can be inspected by ID without being active. Large replies may show **completed · partial output** rather than failing. Omitted values must not be reported as empty or complete.
 
 > Read the active composition's layer names. When finished, reply only Ready.
 
@@ -51,6 +57,14 @@ Save the disposable project, close/reopen the assistant, then send:
 
 Expected: historical explanation plus a clearly identified current read; still only one created layer. Save under a new project filename and confirm the new history contains earlier context while the original remains unchanged.
 
+### Continue a detailed inspection
+
+On an existing disposable animation, send:
+
+> Refine the existing design without adding layers. First inspect only the ring strokes, background shape groups and title glitch controls you need. Return compact measurements and counts rather than dumping every vertex or keyframe. Make the ring markings finer, add variation within existing background groups, and tighten the title glitch timing. Preserve existing controls. Do not render or start a preview. If a result is marked partial, inspect only the missing properties; do not repeat a completed edit.
+
+Expected: the task can continue after large result data is reduced for the model, with full exact results still in the activity cards. This is a practical behavior check, not a deterministic way to force overflow; the offline tests deliberately generate oversized results. Before reloading an unsaved panel session, save the AE project and wait until the footer displays its JSON filename. Retry resumes from recorded results and must not dispatch the same command again.
+
 ## Offline cases required alongside the milestone
 
 - Invalid/truncated tool arguments never execute.
@@ -62,4 +76,4 @@ Expected: historical explanation plus a clearly identified current read; still o
 - Model/history markup cannot load remote resources or invoke commands.
 - Packaging includes only allowlisted client files and works without the source checkout.
 
-These are future acceptance requirements. Record actual results and limitations when the implementation is tested.
+These cases have offline fixtures in `tests/`; run `node --test tests/*.test.js` for the current revision. Offline coverage does not replace the native panel and model prompts above. Record actual acceptance results and limitations in [validation](validation.md).

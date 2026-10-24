@@ -1,0 +1,34 @@
+name: Client checks
+on: [push, pull_request, workflow_dispatch]
+permissions:
+  contents: read
+jobs:
+  test:
+    strategy:
+      matrix:
+        os: [windows-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: node --test tests/*.test.js
+      - run: python -m unittest discover -s tests -p "test_*.py"
+  package:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python scripts/package_plugin.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Ae-lm-development-preview
+          path: dist/Ae-lm-0.1.0-dev.1-windows.zip
+          if-no-files-found: error

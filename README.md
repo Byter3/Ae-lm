@@ -1,35 +1,69 @@
 # Ae-lm
 
-An After Effects assistant for studio workflows, designed to use a studio's existing Open WebUI service and model access.
+**An AI assistant for After Effects in studio pipelines.** A dockable CEP panel connected to your studio's Open WebUI service, with project inspection, reviewed ExtendScript execution and local conversation history.
 
-**Development scaffold. There is no installable After Effects plug-in or working host integration in this repository yet.** The first milestone is defined below; supported After Effects versions, the panel technology and distribution format will be recorded after a host integration prototype is validated.
+`0.1.0-dev.1` is an **unsigned Windows preview**. Native panel opening, model replies and inspection calls have been observed on an artist workstation. Broader workstation/version coverage and the complete edit/save/resume workflow still need acceptance testing. See [validation](docs/validation.md).
 
-## Project boundaries
+## What it does
 
-Ae-lm owns the After Effects interface, project/composition/layer tools, script execution, local conversation storage and its eventual installable package. [Hou-lm](https://github.com/Byter3/Hou-lm) remains the separate Houdini product with its own releases and artist-confirmed baseline.
+- Inspect compositions, layers, keyframes, expressions and existing diagnostics without starting previews or renders.
+- Create and modify content using general model-written ExtendScript.
+- Review scripts with **Apply once / Reject**, or enable **Auto-run scripts** for the current panel session.
+- Expand compact activity cards to see exact commands and results.
+- Save full conversations beside the AE project while keeping model context bounded.
+- Reuse Hou-lm's local server/model settings and saved Windows login when available.
 
-Both clients are intended to use the same studio-managed Open WebUI service, optionally backed by LiteLLM. Artists use their own account and permitted models. Each client executes tools only in its own host application. Installing one plug-in will not require installing the other.
+## Install on Windows
 
-The initial shared asset is a set of [assistant conventions](docs/assistant-conventions.md), not an executable shared library. No shared client-core repository, submodule or cross-repository runtime dependency has been introduced. Shared code will be extracted only when both working clients demonstrate a useful common interface.
+You need After Effects and access to a studio Open WebUI account. **No separate Node, Python, Git, npm or local server is needed.** The manifest allows AE 2024–2026; AE 2026 is experimental. This is a Windows preview, not a macOS package.
 
-## First milestone
+1. Download [the source ZIP](https://github.com/Byter3/Ae-lm/archive/refs/heads/main.zip) using **Code → Download ZIP**, or use a packaged ZIP from a successful [Client checks run](https://github.com/Byter3/Ae-lm/actions/workflows/tests.yml). Extract it.
+2. Copy the extracted **`extension` folder**, rename the copy **`studio.aelm`**, and place it in:
 
-1. Inspect the active composition and report observed properties and layers.
-2. Propose one small edit with the exact script available for review.
-3. Apply it once after approval and show the execution result in a collapsed receipt.
-4. Save and resume the conversation beside the project without replaying commands.
+   ```text
+   %APPDATA%\Adobe\CEP\extensions\studio.aelm
+   ```
 
-See [the milestone and test prompts](docs/first-milestone.md). Inspection, review, Auto-run, persistence, credential storage and bounded model context are requirements to implement, not features already delivered by this scaffold.
+   The resulting path must include `studio.aelm\CSXS\manifest.xml` directly, with no extra `extension` folder inside.
+3. Open **Windows PowerShell from the Start menu**, as the Windows user who runs AE, and run:
 
-## Development
+   ```powershell
+   reg.exe add "HKCU\Software\Adobe\CSXS.11" /v PlayerDebugMode /t REG_SZ /d 1 /f
+   reg.exe add "HKCU\Software\Adobe\CSXS.12" /v PlayerDebugMode /t REG_SZ /d 1 /f
+   ```
 
-- [Architecture](docs/architecture.md): ownership, backend boundary and integration decisions.
-- [Assistant conventions](docs/assistant-conventions.md): review, history, context and truthful reporting requirements.
-- [Contributing](CONTRIBUTING.md): staged development and validation.
-- [Security](SECURITY.md): execution and project-data boundaries.
+   These per-user settings allow unsigned CEP extensions. Run them in normal Windows PowerShell, not AE's console or an app-embedded terminal. No administrator access or PowerShell execution-policy change is needed for these two commands.
+4. Save your work and reopen AE normally. Choose **Window → Extensions → Ae-lm Assistant**, then dock the panel where you want it.
+5. Open **Settings**, enter your studio's Open WebUI base URL and **your Open WebUI user API key or session token**, then click **Connect and load models**. Choose a model that supports tool calling.
 
-The shared [studio-assistant-backend](https://github.com/Byter3/studio-assistant-backend) repository owns the Open WebUI/LiteLLM stack example, setup guide and optional streaming adapter. A working studio service can be reused; this scaffold does not deploy or modify a server. Backend deployment and client releases remain independent.
+If Hou-lm is already configured on that workstation, click **Use Hou-lm settings**, leave the key blank and connect. Saved credentials are protected for the Windows user; configure login on each workstation instead of copying credential files. Ae-lm stores only its URL/model preferences and holds active tokens in memory.
 
-## License
+See [the install guide](docs/install.md) for upgrades, the optional installer and troubleshooting. Copying the folder and enabling unsigned CEP is sufficient; signing is not required for this preview.
 
-[MIT](LICENSE), copyright 2026 Byter3. Adobe After Effects and separately installed model/server dependencies have their own licenses. This is an independent project, not an official Adobe product.
+## First test
+
+Create or open a disposable composition, then send:
+
+> Inspect the active composition. Report its name, dimensions, frame rate, duration and layer count. Do not change anything or render.
+
+For a script test, leave Auto-run off:
+
+> Add one null named AELM_TEST_CONTROL to the active composition. If that name already exists, stop. Show the proposed script for approval, then read back the layer name after approval without rendering.
+
+Reject once and confirm nothing changed; repeat and approve once. More [test prompts](docs/first-milestone.md) cover recall and resume.
+
+## Downloads and development
+
+The source ZIP contains the complete installable `extension` folder. A successful GitHub **Actions → Client checks** run also provides the packaged artifact **Ae-lm-development-preview**; downloading Actions artifacts requires GitHub sign-in. Extract the artifact download, then its enclosed `Ae-lm-0.1.0-dev.1-windows.zip`. If a versioned release is published, the same package can be attached under [Releases](https://github.com/Byter3/Ae-lm/releases).
+
+Developers can build the package with `python scripts/package_plugin.py`. The output is `dist/Ae-lm-0.1.0-dev.1-windows.zip`; `dist` is generated and excluded from Git. See [contributing](CONTRIBUTING.md) and [publication steps](docs/releasing.md).
+
+## Project and execution boundaries
+
+A saved `Shot.aep` uses `.aelm/Shot.aep.json` beside the project. Unsaved projects keep history in memory. Archives can contain private project details. Only bounded conversation context is sent to the configured service.
+
+Scripts run with AE's permissions. Review and Undo groups are not a sandbox or guaranteed rollback. Stop cancels model waiting and prevents subsequent commands; an already dispatched host script may continue. Unknown execution outcomes are recorded and never replayed automatically. See [security](SECURITY.md).
+
+[Hou-lm](https://github.com/Byter3/Hou-lm) is the Houdini client; [studio-assistant-backend](https://github.com/Byter3/studio-assistant-backend) owns the shared service examples. Each installs independently. Ae-lm does not deploy or reconfigure a server. [Architecture](docs/architecture.md) · [Assistant conventions](docs/assistant-conventions.md)
+
+[MIT](LICENSE), copyright 2026 Byter3. Independent project; not an official Adobe product. Adobe After Effects and separately installed services retain their own licenses.

@@ -1,23 +1,33 @@
 # Security and data boundaries
 
-This repository currently contains a development scaffold. The controls below are implementation requirements; they have not been delivered or verified in an After Effects plug-in yet.
+Ae-lm `0.1.0-dev.1` is an unsigned development preview. See [validation](docs/validation.md) for tested scope; this document is not a security certification.
 
-## Execution
+## Script execution
 
-Model-written scripts run with the permissions of the host integration. General host scripting is not a security sandbox. Review should show the exact proposed source; Auto-run must be an explicit local choice and must never be enabled by a model message or restored project history.
+General model-written ExtendScript runs with AE's permissions and may affect files or other application state. Review, project-identity checks and named Undo groups are not a security sandbox. A script failure can leave earlier changes; Undo cannot reverse every possible side effect.
 
-Project names, layer text, expressions, tool output and imported history are untrusted data. They must not become assistant instructions, executable UI markup or authorization. Validate complete tool calls before dispatch and never execute saved history on load.
+The panel validates complete tool responses before dispatch. Scripts require local review or explicitly enabled Auto-run. Auto-run is off on panel load and is never restored from history. Host execution IDs are consumed before execution and retained across host-script reload within the AE session. Saved history is data, never an execution queue.
 
-Cancellation, Undo and error handling must describe their real limits. Unknown execution outcomes cannot be assumed to have rolled back or be retried automatically.
+Stop cancels model waiting and prevents subsequent commands; it cannot guarantee interruption of a script already on AE's main thread. Timeouts and unreadable execution results are treated as unknown, not automatically replayed. Project/layer names, expressions, tool results and model/history prose are untrusted content. The UI uses text rendering rather than executable HTML or external resources.
 
 ## Credentials and project data
 
-Use the artist's restricted Open WebUI account key, not a provider key or a LiteLLM master credential. Use HTTPS with certificate validation for studio connections, reject credential-forwarding redirects, and keep credentials out of project archives and ordinary preferences. Confirm suitable OS credential protection for the selected integration technology; do not invent a plaintext persistence fallback.
+Use the artist's restricted **Open WebUI user API key or session token**, not a provider key or LiteLLM master key. The active token stays in memory and is cleared on panel unload or connection edits. Ae-lm creates no persistent credential store or plaintext fallback. Local URL/model preferences contain no token or Auto-run authorization.
 
-Local project-associated history is intended to be plain JSON and may contain prompts, script source, tool results, text, paths and proprietary project details. Keep its access and sharing controls aligned with the project. A local archive does not imply local-only inference: the bounded request context goes to the configured model service/provider.
+On Windows, Connect can read Hou-lm's existing current-user DPAPI login for the matching service when the manual token field is empty. The original saved server spelling determines the credential filename, entropy and envelope checks; the HTTP destination must match the saved endpoint. A fixed Windows PowerShell helper receives ciphertext/entropy on stdin and returns decrypted data through a bounded private pipe. No secret is interpolated into command arguments, written to temporary files, or included in errors. The helper has a five-second timeout, does not change execution policy, and fails to manual key entry if unavailable. Hou-lm's files are read-only; project archives and Auto-run authorization are never imported.
 
-Diagnostic reports should use fixed errors and bounded counters rather than raw requests, credentials or project content. Release packages must use an explicit file allowlist and must exclude private assets and local configuration.
+HTTPS uses certificate validation. The transport rejects redirects without forwarding credentials and performs no automatic retry. HTTP is accepted for compatibility, but sends bearer credentials and project content without transport encryption; use HTTPS or a suitably protected studio connection.
+
+Project-associated JSON is plaintext and can include prompts, script source, expressions, text, file paths and proprietary project details. Protect and share `.aelm` archives like the project itself. A local archive does not imply local inference: bounded context is sent to the configured studio service and its selected model/provider.
+
+Archive restoration validates fields and versions, preserves malformed files, and cannot restore settings or execution permission. Saves use temporary files, an exclusive lock and a baseline hash to detect other writers. An existing lock or conflict is preserved for deliberate recovery rather than silently overwritten. These checks are not protection against a local process already able to alter the application or project files.
+
+## Installation and distribution
+
+The manual installation guide documents Adobe's per-user `PlayerDebugMode` setting for CEP 11/12; the optional installer applies the same settings with `-EnableUnsigned`. This permits unsigned extensions using those runtimes, not only Ae-lm. Run the commands as the artist's normal Windows user, in Start-menu PowerShell. No execution-policy change is required for the manual copy and registry commands. Managed studios should use their approved extension policy. The optional installer does not change PowerShell execution policy or overwrite an existing Ae-lm installation.
+
+The package builder uses an explicit allowlist and rejects linked source paths. Credentials, private projects, local sidecars, diagnostics and build output must remain outside public commits. The preview starts no local network listener and makes no server deployment changes.
 
 ## Reporting
 
-Use GitHub private vulnerability reporting if enabled. Otherwise ask the maintainer for a private channel before sending sensitive details. Do not post production projects, full conversation sidecars, credentials or raw provider responses in public issues.
+Use GitHub private vulnerability reporting if enabled. Otherwise ask the maintainer for a private channel before sending sensitive details. Do not attach production projects, full sidecars, credentials or raw provider responses to public issues.

@@ -1,39 +1,51 @@
-# Application and repository boundaries
+# Architecture
 
-Decision: 22 October 2026. Status: accepted structure, host implementation pending.
+Decision: 22 October 2026. Implementation: unsigned Windows preview `0.1.0-dev.1`.
 
-## Independent applications
+## Application boundaries
 
 | Component | Ownership |
 | --- | --- |
-| Hou-lm | Houdini panel lifecycle, HOM tools, Python execution, HIP history, client packaging and Houdini acceptance |
-| Ae-lm | After Effects interface, project/composition/layer tools, host scripting, project history, client packaging and AE acceptance |
-| [studio-assistant-backend](https://github.com/Byter3/studio-assistant-backend) | Open WebUI/LiteLLM stack example, server setup, optional gateway adapter and backend tests |
+| [Hou-lm](https://github.com/Byter3/Hou-lm) | Houdini panel, HOM/Python tools, HIP history and packaging |
+| Ae-lm | AE panel, composition/layer/property inspection, ExtendScript execution, project history and packaging |
+| [studio-assistant-backend](https://github.com/Byter3/studio-assistant-backend) | Open WebUI/LiteLLM server examples, optional gateway adapter and backend tests |
 
-Each client will execute tool requests only in its own host process. The studio backend performs model inference/routing; it does not gain a new workstation command endpoint from this repository split. A shared studio model alias does not share local conversations or approvals between clients.
+Clients use the same studio service but execute commands only in their own application. They do not share approval state or project histories. Releases are independent; no sibling checkout, shared executable client library, runtime download or artist package manager is required.
 
-The clients have independent releases. Hou-lm's existing package and artist-confirmed runtime remain intact. Ae-lm has no installable release until its own integration is implemented and tested.
+[Assistant conventions](assistant-conventions.md) are the shared behavior contract. Houdini-specific source is not imported into AE. The [Hou-lm reference release](https://github.com/Byter3/Hou-lm/tree/2657f331395d4646135dd98dba0263285cdc3fe3) remains unchanged by AE development.
 
-## Shared behavior first
+## Host integration
 
-[Assistant conventions](assistant-conventions.md) describe the behaviors to preserve across applications. They are a design contract, not a new service API or a common on-disk schema.
+The preview uses a dockable **CEP panel**, a CommonJS client running in CEP's embedded Node environment, and a small **ExtendScript** host bridge. CEP's `evalScript` interface dispatches a JSON-encoded method and argument envelope to `AELM.dispatch`. The execution source is data inside that envelope; only the explicit execution method evaluates it.
 
-Reference implementation: [Hou-lm v0.1.0](https://github.com/Byter3/Hou-lm/tree/2657f331395d4646135dd98dba0263285cdc3fe3), with the [artist-confirmed runtime baseline](https://github.com/Byter3/Hou-lm/tree/091265f248688dc100e75133ae854de39d573fbb). These references record provenance, not a claim that every draft AE requirement has already been implemented in Houdini.
+Adobe documents panel docking, embedded runtimes and host scripting in the [CEP cookbook](https://github.com/Adobe-CEP/CEP-Resources/blob/master/CEP_12.x/Documentation/CEP%2012%20HTML%20Extension%20Cookbook.md). The manifest permits AE 24.x/25.x and experimental AE 26.x testing. The artist confirmed panel loading and a live model/inspection exchange, but the successful host build was not recorded. Separate native fixture evidence covers **AE 25.1x68 on Windows**. Neither establishes acceptance of the whole declared range; see [validation](validation.md).
 
-Do not copy the Houdini panel into an AE runtime. Hou-lm's tool protocol imports host inspection/help, its model context reducer recognizes Houdini tool names and node/cook fields, and its history store assumes HIP filenames. These are application-specific boundaries even when individual functions appear generic.
+UXP is a future adapter target. Adobe's [announced transition](https://blog.developer.adobe.com/en/publish/2026/09/investing-in-the-future-of-creative-cloud-extensibility-uxp-comes-to-our-flagship-applications) puts AE UXP public beta by November 2026 and CEP removal from new app versions in December 2029; ExtendScript itself is unaffected. Keep panel integration, host dispatch and agent logic separated so a later port does not rewrite execution/history rules.
 
-Any later reuse must have a demonstrated common interface, explicit versioning, tests in both applications and packaged dependencies. No application may require a sibling checkout, an unpinned source download, or an artist-run package manager. A shared client-core repository is deferred until that evidence exists.
+MCP is not required between this embedded panel and AE. No workstation HTTP listener or external MCP process is started. A future MCP adapter must reuse the same local review and execution boundary rather than add an unchecked command path.
 
-## Backend ownership
+## Data flow
 
-Use the studio's existing Open WebUI base URL and user account. The [server examples](https://github.com/Byter3/studio-assistant-backend/blob/main/docs/server-setup.md) and [optional gateway adapter](https://github.com/Byter3/studio-assistant-backend/tree/main/gateway) are maintained in studio-assistant-backend. Ae-lm does not duplicate a Compose stack, ship master/provider keys or deploy a second backend. The backend repository is the server deployment project, not the deferred shared client-code library.
+1. The panel sends bounded conversation context and AE tool definitions to Open WebUI's `/api/chat/completions`; `/api/models` supplies the model list.
+2. The complete response is parsed and every tool request validated before any request from that response is dispatched.
+3. `ae_inspect` reads bounded authored project/composition/layer/property state and existing diagnostics. It does not request a preview or render.
+4. `ae_run_script` proposes general ExtendScript. Local review or explicit Auto-run authorizes the exact proposal; the host checks project identity and consumes its execution ID before running it.
+5. The result and exact source enter the receipt and archive. A subsequent model request uses recorded results; retry and restore do not redispatch old commands.
 
-The initial protocol target is the Open WebUI model list and chat-completion/tool-call interface already used by Hou-lm. Implement and verify it in the chosen AE client environment using synthetic fixtures. Preserve each application's tool names and host-specific instruction set; do not make the server reinterpret Houdini tools as After Effects operations.
+Host calls are serialized. AE executes ExtendScript on its main thread, so cancelling an HTTP request does not prove a dispatched script stopped. The bridge records unknown outcomes and blocks further calls until the artist can inspect AE. Errors may leave partial changes; named Undo groups are not transactions or a security sandbox.
 
-Backend deployment, model compatibility and account administration are separate operations. Studio knowledge ingestion and central policy/multi-user testing remain deferred.
+Successful host output that exceeds the reply limit is returned as an explicitly partial capture, preserving the completed execution ID and outcome. `_aelmHost.partial` and the receipt's **partial output** label identify this case. Omitted output was never captured by the panel and is not available in the archive; a smaller targeted inspection can obtain missing values without repeating an edit. This differs from request-context reduction, where full captured receipts remain locally available. Actual script exceptions still stop the batch and retain their error details.
 
-## Host integration decision
+The host bridge is retained inside AE so panel reloads do not reset consumed command IDs. After updating `extension/host/aelm.jsx`, save work and restart AE normally to load the new host implementation. Reopening only the panel is insufficient for a host-code update.
 
-Panel technology, scripting bridge, runtime language, credential mechanism and installation format remain open until the installed After Effects version and Adobe's supported APIs are checked. Do not infer these from Houdini's Python/Qt implementation or promise compatibility across untested Adobe versions.
+## Storage and connection
 
-The first prototype should establish one application-local command boundary, a responsive interface, and a read-only composition query before building a full agent loop. It should not create a general network listener on the artist workstation merely to mimic another application's integration.
+The full versioned archive is `.aelm/<project filename>.json` beside saved `.aep`/`.aepx` files; unsaved projects remain in memory. Save As carries the archive to a new destination while preserving the original. Existing destination histories, malformed files, locks and concurrent changes fail without silent replacement. Atomic writes use an exclusive lock and baseline-content check.
+
+Model context retains exact recent messages and paired tool results while they fit its 96,000-character budget. Older complete turns can be omitted with an explicit notice. If the active task still exceeds the budget, the request copy replaces bulky successful tool data with explicitly marked structural previews, oldest first. Exact script calls, IDs, outcome/target metadata and full local receipts are preserved. Missing values remain unknown; the assistant can request a smaller inspection. Error/unknown outcomes are never summarized into success. If exact source, messages or protected metadata still exceed the budget, the request stops. This changes model input only, not the complete local archive or command execution.
+
+Active tokens are session-only. Ordinary local preferences contain only service URL/model. The independent `settings.js` adapter optionally reads Hou-lm's preference schema and existing current-user Windows DPAPI login, without importing Houdini source or writing Hou-lm files. Ae-lm preferences override the shared defaults; a Settings button reloads Hou-lm's server/model. Connect decrypts only a matching endpoint's login when the manual field is empty, using a bounded hidden Windows PowerShell process and private pipes. The exact saved URL remains the hash/entropy/envelope identity even when HTTP URL normalization changes its spelling. No Auto-run or project data is imported.
+
+The transport validates TLS, rejects redirects and never retries automatically. HTTP remains accepted for compatible existing deployments; studios should use HTTPS or an appropriately protected connection. Project history never grants authorization or changes credentials.
+
+Server deployment, studio knowledge ingestion and central policy/multi-user administration remain separate, deferred scope. See [validation](validation.md) for completed checks and pending acceptance.
