@@ -1,0 +1,12 @@
+{
+  "name": "ae-lm",
+  "version": "0.1.0-dev.1",
+  "private": true,
+  "description": "Studio-connected assistant panel for Adobe After Effects",
+  "license": "MIT",
+  "scripts": {
+    "test": "node --test tests/*.test.js",
+    "package": "python scripts/package_plugin.py"
+  },
+  "engines": { "node": ">=17.7" }
+}

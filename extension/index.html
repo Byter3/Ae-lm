@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Ae-lm Assistant</title><link rel="stylesheet" href="panel.css">
+</head>
+<body>
+  <header><div class="brand"><span class="mark">ae</span><div><strong>Ae-lm</strong><small>STUDIO ASSISTANT · DEVELOPMENT PREVIEW</small></div></div><button id="inspect" title="Inspect the active composition locally, without contacting a model">Inspect</button><button id="settingsToggle" aria-expanded="false">Settings</button></header>
+  <section id="settings" hidden aria-label="Studio connection">
+    <label>Studio Open WebUI URL<input id="server" type="url" placeholder="https://ai.studio.example" autocomplete="off"></label>
+    <label>Your Open WebUI API key or session token<input id="token" type="password" autocomplete="off" spellcheck="false"></label>
+    <p id="connectionHint" class="muted" role="status"></p>
+    <p class="muted">Tokens stay in memory. A saved Hou-lm login is read from Windows-protected storage; Ae-lm never copies it to settings or project history. Use HTTPS for encrypted transport.</p>
+    <button id="useHoulm" type="button">Use Hou-lm settings</button>
+    <div class="row"><button id="connect">Connect and load models</button><span id="connection" role="status">Not connected</span></div>
+  </section>
+  <main id="transcript" aria-label="Conversation"><div class="welcome"><span class="welcome-mark">ae</span><h1>Work with your composition.</h1><p>Inspect layers, build expressions, and review scripts before they run.</p><p class="muted">Start with <b>Inspect</b> for a local read, or connect to your studio in Settings.</p></div></main>
+  <section id="progress" hidden aria-live="polite"><div class="row"><strong id="phase">Working</strong><span id="elapsed">0:00</span><button id="stop">Stop</button></div><p id="progressDetail"></p><div class="track"><span></span></div></section>
+  <section id="review" hidden aria-label="Review proposed script"><strong id="reviewTitle">Review script</strong><p id="reviewTarget" class="muted"></p><pre id="reviewSource"></pre><p class="muted">This runs with your AE permissions. Undo groups do not guarantee rollback of every effect.</p><div class="row"><button id="reject">Reject</button><button id="approve" class="primary">Apply once</button></div></section>
+  <div id="error" role="alert" hidden></div>
+  <form id="composer"><textarea id="prompt" aria-label="Message" placeholder="Ask about your project, or describe what you want to change…" rows="3"></textarea><div class="row"><select id="model" aria-label="Studio model"><option value="">Connect to choose a model</option></select><button id="retry" type="button" title="Request the next model response using recorded results. Executed commands are not replayed.">Retry model</button><button id="send" type="submit" class="primary">Send</button></div></form>
+  <footer><label class="auto"><input id="autoRun" type="checkbox">Auto-run scripts</label><span id="history" title="History is stored next to a saved AEP">Unsaved project</span></footer>
+  <script src="panel.js"></script>
+</body></html>
