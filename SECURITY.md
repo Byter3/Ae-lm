@@ -1,5 +1,7 @@
 # Security and data boundaries
 
+Reference images and screenshots are private project material. The visual workflow sends only explicitly attached active references and the current turn's latest capture to the configured studio service. Image manifests cannot supply arbitrary file paths, URLs, credentials or capture permission. Viewport access starts off each panel load and is independent of script Auto-run. The optional bundled Windows helper captures only the uniquely detected visible Composition viewer or a locally selected visible AE region; it does not fall back to full-desktop capture. Unsaved image files use temporary session storage and may remain until Windows cleans that storage. See [visual workflow](docs/visual-workflow.md) for storage and native-acceptance limitations.
+
 Ae-lm `0.1.0-dev.1` is an unsigned development preview. See [validation](docs/validation.md) for tested scope; this document is not a security certification.
 
 ## Script execution
