@@ -3,6 +3,7 @@
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const {AssetStore,validateVisuals,items:visualItems} = require('./visuals');
 
 const MAX_BYTES = 50 * 1024 * 1024;
 const MAX_TEXT = 1024 * 1024;
@@ -153,10 +154,10 @@ function validateMessages(messages, options) {
 
 function validateArchive(value, options) {
   const opts = options || {};
-  keys(value, ['schemaVersion', 'conversationId', 'createdAt', 'updatedAt', 'messages', 'receipts'], 'Archive');
-  if (value.schemaVersion !== 1) throw failure('history_version', 'Unsupported Ae-lm history version. The original file has been preserved.');
+  keys(value, ['schemaVersion', 'conversationId', 'createdAt', 'updatedAt', 'messages', 'receipts', 'visuals'], 'Archive');
+  if (![1,2].includes(value.schemaVersion) || value.schemaVersion===1 && 'visuals' in value) throw failure('history_version', 'Unsupported Ae-lm history version. The original file has been preserved.');
   const archive = {
-    schemaVersion: 1,
+    schemaVersion: value.schemaVersion,
     conversationId: string(value.conversationId, 'Conversation ID', 256, false),
     createdAt: timestamp(value.createdAt, 'Creation date'),
     updatedAt: timestamp(value.updatedAt, 'Update date'),
@@ -170,7 +171,7 @@ function validateArchive(value, options) {
     const id = string(receipt.id, 'Receipt ID', 256, false);
     if (ids.has(id)) throw failure('history_invalid', 'Receipt IDs must be unique.');
     ids.add(id);
-    if (['read', 'script'].indexOf(receipt.kind) < 0 || STATUSES.indexOf(receipt.status) < 0) {
+    if (['read', 'script', 'capture'].indexOf(receipt.kind) < 0 || STATUSES.indexOf(receipt.status) < 0) {
       throw failure('history_invalid', 'Invalid receipt kind or status.');
     }
     const result = {
@@ -185,13 +186,17 @@ function validateArchive(value, options) {
     ['startedAt', 'completedAt'].forEach(key => { if (key in receipt) result[key] = timestamp(receipt[key], key); });
     ['sourceHash', 'targetProjectToken', 'error'].forEach(key => { if (key in receipt) result[key] = string(receipt[key], key, 4096, true); });
     if ('authorization' in receipt) {
-      if (['manual', 'auto-run'].indexOf(receipt.authorization) < 0) throw failure('history_invalid', 'Invalid authorization receipt.');
+      if (['manual', 'auto-run', 'viewport-access'].indexOf(receipt.authorization) < 0) throw failure('history_invalid', 'Invalid authorization receipt.');
       result.authorization = receipt.authorization;
     }
     if ('result' in receipt) result.result = jsonValue(receipt.result, 'Receipt result');
     return result;
   });
   archive.messages = validateMessages(value.messages, {restore: !!opts.restore, receipts: archive.receipts});
+  if(value.schemaVersion===2){
+    const callIds=new Set(archive.messages.flatMap(m=>(m.tool_calls||[]).filter(c=>c.function.name==='ae_capture_view').map(c=>c.id)));
+    archive.visuals=validateVisuals(value.visuals,archive.messages.filter(m=>m.role==='user').length,callIds);
+  }
   if (Buffer.byteLength(JSON.stringify(archive), 'utf8') > MAX_BYTES) throw failure('history_size', 'History exceeds the 50 MiB archive limit.');
   return archive;
 }
@@ -252,12 +257,15 @@ function ensureDirectory(directory) {
 
 class HistoryStore {
   constructor() {
+    this.assets = new AssetStore();
     this.path = null;
     this.baselineHash = null;
     this.archive = createArchive();
+    this._saving = false;
   }
 
   bind(projectPath, options) {
+    if (this._saving) throw failure('history_locked', 'Wait for the current history save before changing projects.');
     const opts = options || {};
     const target = sidecarPath(projectPath);
     let archive;
@@ -283,20 +291,22 @@ class HistoryStore {
     }
     if (!archive) archive = opts.carry ? validateArchive(opts.carry) : createArchive();
     if (opts.carry && target) status = 'carried';
+    this.assets.bind(target,visualItems(archive),!!opts.carry);
     this.path = target;
     this.baselineHash = baselineHash;
     this.archive = archive;
     return {archive: archive, path: target, status: status};
   }
 
-  save(value) {
+  _prepareSave(value) {
+    if (this._saving) throw failure('history_locked', 'A history save is already in progress.');
     const archive = validateArchive(value);
     archive.updatedAt = new Date().toISOString();
     const bytes = Buffer.from(JSON.stringify(archive, null, 2) + '\n', 'utf8');
     if (bytes.length > MAX_BYTES) throw failure('history_size', 'History exceeds the 50 MiB archive limit.');
     if (!this.path) {
       this.archive = archive;
-      return {archive: archive, path: null, status: 'unsaved'};
+      return {result:{archive:archive,path:null,status:'unsaved'}};
     }
     const target = this.path;
     ensureDirectory(path.dirname(target));
@@ -306,25 +316,86 @@ class HistoryStore {
       if (error.code === 'EEXIST') throw failure('history_locked', 'Another writer or an interrupted save holds this history lock. The original history has been preserved.');
       throw error;
     }
-    const temporary = target + '.' + crypto.randomBytes(8).toString('hex') + '.tmp';
+    this._saving = true;
+    const state = {target,lockPath,lock,temporary:target + '.' + crypto.randomBytes(8).toString('hex') + '.tmp',
+      baselineHash:this.baselineHash,archive,bytes};
     try {
-      const existing = readBytes(target);
-      const actualHash = existing === null ? null : digest(existing);
-      if (actualHash !== this.baselineHash) {
-        throw failure('history_conflict', 'History changed outside this panel. It was not overwritten. Reopen the project history before continuing.');
-      }
-      const fd = fs.openSync(temporary, 'wx', 0o600);
+      this._checkSave(state);
+      const fd = fs.openSync(state.temporary, 'wx', 0o600);
       try { fs.writeFileSync(fd, bytes); fs.fsyncSync(fd); } finally { fs.closeSync(fd); }
-      fs.renameSync(temporary, target);
-      this.baselineHash = digest(bytes);
-      this.archive = archive;
-      return {archive: archive, path: target, status: 'saved'};
-    } finally {
-      try { fs.unlinkSync(temporary); } catch (error) { if (error.code !== 'ENOENT') { /* preserve primary save error */ } }
-      fs.closeSync(lock);
-      fs.unlinkSync(lockPath);
+      return state;
+    } catch(error) { this._finishSave(state); throw error; }
+  }
+
+  _checkSave(state) {
+    if (this.path !== state.target || this.baselineHash !== state.baselineHash) {
+      throw failure('history_conflict', 'The history target changed while saving. It was not overwritten.');
+    }
+    const existing = readBytes(state.target);
+    const actualHash = existing === null ? null : digest(existing);
+    if (actualHash !== state.baselineHash) {
+      throw failure('history_conflict', 'History changed outside this panel. It was not overwritten. Reopen the project history before continuing.');
     }
   }
+
+  _saved(state) {
+    this.baselineHash = digest(state.bytes);
+    this.archive = state.archive;
+    state.committed = true;
+    state.result = {archive:state.archive,path:state.target,status:'saved'};
+    return state.result;
+  }
+
+  _finishSave(state) {
+    // Remove only our exclusive temporary file and lock; never unlink the target.
+    // Cleanup failure cannot turn an already committed save into a failed save
+    // or mask the original pre-commit error. A leftover lock remains protective.
+    let cleanupFailed = false;
+    try { fs.unlinkSync(state.temporary); } catch (error) { if(error.code!=='ENOENT')cleanupFailed=true; }
+    try { fs.closeSync(state.lock); } catch (_) { cleanupFailed=true; }
+    try { fs.unlinkSync(state.lockPath); } catch (error) { if(error.code!=='ENOENT')cleanupFailed=true; }
+    this._saving = false;
+    if (cleanupFailed && state.committed) {
+      state.result.warning = 'History was saved, but temporary save-file cleanup failed. A remaining history lock may need attention before the next save.';
+    }
+  }
+
+  save(value) {
+    const state = this._prepareSave(value);
+    if (state.result) return state.result;
+    try {
+      this._checkSave(state);
+      fs.renameSync(state.temporary, state.target);
+      return this._saved(state);
+    } finally { this._finishSave(state); }
+  }
+
+  async saveAsync(value) {
+    const state = this._prepareSave(value);
+    if (state.result) return state.result;
+    const delays = [50,100,200,400,800];
+    try {
+      for (let attempt=0; ; attempt++) {
+        // Keep the same exclusive lock, but check for non-cooperating changes
+        // again after every delay. Transient Windows sharing failures never
+        // authorize overwriting a different baseline or deleting the target.
+        this._checkSave(state);
+        try {
+          await new Promise((resolve,reject)=>fs.rename(state.temporary,state.target,error=>error?reject(error):resolve()));
+          return this._saved(state);
+        } catch(error) {
+          if (['EPERM','EBUSY','EACCES'].indexOf(error.code)<0) throw error;
+          if (attempt>=delays.length) {
+            const failed=failure('history_write_failed','Windows kept the history file busy or denied replacement. The previous history is preserved. Close any program holding that JSON file, then retry.');
+            failed.causeCode=error.code;
+            throw failed;
+          }
+          await new Promise(resolve=>setTimeout(resolve,delays[attempt]));
+        }
+      }
+    } finally { this._finishSave(state); }
+  }
+
 }
 
 module.exports = {HistoryStore, createArchive, validateArchive, validateMessages, sidecarPath, MAX_BYTES};

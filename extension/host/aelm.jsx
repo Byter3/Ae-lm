@@ -82,9 +82,35 @@ if (typeof AELM === "undefined") {
             if (typeof value !== "number" || value !== Math.floor(value) || value < min || value > max) throw Error("Invalid numeric argument");
             return value;
         }
+        function projectSnapshot() {
+            // Read fresh native handles once per attempt. Project/File wrappers can
+            // become invalid during startup, close/open or Save As; never turn a
+            // failed saved-project read into an invented unsaved-project identity.
+            var attempt, current, file, filePath;
+            for (attempt = 0; attempt < 2; attempt++) {
+                try {
+                    current = app.project;
+                    if (current === null) return {project:null, path:null};
+                    if (typeof current === "undefined") throw Error("Project unavailable");
+                    file = current.file;
+                    filePath = null;
+                    if (file) {
+                        filePath = file.fsName;
+                        if (typeof filePath !== "string" || !filePath.length) throw Error("Project path unavailable");
+                    }
+                    return {project:current, path:filePath};
+                } catch (_) { /* Reacquire once; no script or scene operation is replayed. */ }
+            }
+            var unavailable = Error("After Effects could not provide the current project identity. Wait for project loading or switching to finish, then retry. The panel has not substituted an unsaved project.");
+            unavailable.aelmCode = "project_unavailable";
+            throw unavailable;
+        }
         function identity() {
-            if (project !== app.project) { project = app.project; projectSerial++; }
-            return {projectToken: generation + ":" + projectSerial, projectPath: project && project.file ? project.file.fsName : null, hostVersion: String(app.version)};
+            var snapshot = projectSnapshot(), changed;
+            // Native wrappers may also reject comparisons after invalidation.
+            try { changed = project !== snapshot.project; } catch (_) { changed = true; }
+            if (changed) { project = snapshot.project; projectSerial++; }
+            return {projectToken: generation + ":" + projectSerial, projectPath: snapshot.path, hostVersion: String(app.version)};
         }
         function error(code, message, modified) { return {ok:false, error:{code:code, message:cut(message, 2000), possiblyModified:!!modified}}; }
         function instance(value, name) {
@@ -144,8 +170,26 @@ if (typeof AELM === "undefined") {
             for(i=1;i<=app.project.numItems;i++) { item=app.project.item(i); if(item.id===id && instance(item,"CompItem")) return item; }
             return null;
         }
+        function viewerInfo() {
+            // Viewer type is independent of project.activeItem and keyboard
+            // focus. CEP can hold focus while the Composition viewer remains
+            // the current viewer. Never activate a viewer to inspect it.
+            var viewer, kind, result = {type:"unknown"};
+            try {
+                viewer = app.activeViewer;
+                if (viewer === null) return {type:"none"};
+                if (typeof viewer === "undefined") return result;
+                kind = viewer.type;
+                if (typeof kind === "undefined" || typeof ViewerType === "undefined") return result;
+                if (kind === ViewerType.VIEWER_COMPOSITION) result.type="composition";
+                else if (kind === ViewerType.VIEWER_LAYER) result.type="layer";
+                else if (kind === ViewerType.VIEWER_FOOTAGE) result.type="footage";
+            } catch (_) { /* An unavailable native viewer is not an empty project. */ }
+            return result;
+        }
         function inspect(args) {
             var ident=identity(), scope=args.scope || "activeComp", offset=integer(args.offset,0,0,1000000), limit=integer(args.limit,10,1,50), result={identity:ident,observation:"Authored state and existing diagnostics; no render or preview requested.",scope:scope}, items=[], i, comp, layer, group, path;
+            if (scope==="activeComp") result.viewer=viewerInfo();
             if (!app.project) { result.project=null; return {ok:true,data:result}; }
             if (scope==="project") {
                 result.total=app.project.numItems;
@@ -154,7 +198,7 @@ if (typeof AELM === "undefined") {
             } else if(scope==="activeComp" || scope==="comp" || scope==="layer") {
                 comp=findComp(args.compId);
                 if(!comp) { result.activeComp=null; result.message="No matching composition is active or available."; result.total=0; return {ok:true,data:result}; }
-                result.comp=itemInfo(comp); result.comp.width=comp.width;result.comp.height=comp.height;result.comp.frameRate=comp.frameRate;result.comp.duration=comp.duration;result.comp.numLayers=comp.numLayers;
+                result.comp=itemInfo(comp); result.comp.width=comp.width;result.comp.height=comp.height;result.comp.frameRate=comp.frameRate;result.comp.duration=comp.duration;result.comp.numLayers=comp.numLayers;result.comp.time=comp.time;
                 if(scope!=="layer") {
                     result.total=comp.numLayers;
                     for(i=offset+1;i<=Math.min(result.total,offset+limit);i++) items.push(layerInfo(comp.layer(i)));
@@ -234,7 +278,7 @@ if (typeof AELM === "undefined") {
                 else reply=error("unknown_method","Unknown host operation.",false);
                 result=serializeReply(reply,method);
                 return result;
-            } catch(ex) { return stringify(error("host_request_failed",ex.toString(),method==="execute")); }
+            } catch(ex) { return stringify(error(ex.aelmCode || "host_request_failed",ex.toString(),method==="execute")); }
         }
         return {dispatch:dispatch};
     }());

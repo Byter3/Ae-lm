@@ -56,9 +56,10 @@ function readSettings(options = {}) {
   const credentialServer = houServer(saved.server_url);
   const houlm = credentialServer ? {baseUrl:url(credentialServer), model:model(saved.model_id), credentialServer} : null;
   const ownUrl = url(own.baseUrl);
-  if (ownUrl) return {baseUrl:ownUrl, model:model(own.model) || (houlm && houlm.baseUrl === ownUrl ? houlm.model : ''), source:'aelm', houlm};
-  if (houlm) return {baseUrl:houlm.baseUrl, model:houlm.model, source:'houlm', houlm};
-  return {baseUrl:'', model:'', source:'', houlm:null};
+  const maxCaptures = Number.isInteger(own.maxCaptures) && own.maxCaptures >= 1 && own.maxCaptures <= 50 ? own.maxCaptures : 12;
+  if (ownUrl) return {baseUrl:ownUrl, model:model(own.model) || (houlm && houlm.baseUrl === ownUrl ? houlm.model : ''), source:'aelm', houlm, maxCaptures};
+  if (houlm) return {baseUrl:houlm.baseUrl, model:houlm.model, source:'houlm', houlm, maxCaptures};
+  return {baseUrl:'', model:'', source:'', houlm:null, maxCaptures};
 }
 
 // Fixed code only: neither URL nor credential data is interpolated into a

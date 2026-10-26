@@ -48,10 +48,11 @@ function setup(responses, options) {
 }
 
 async function untilPending(controller) {
-  for (let attempt = 0; attempt < 100; attempt++) {
+  const deadline=Date.now()+2000;
+  while (Date.now()<deadline) {
     if (controller.pending) return controller.pending.id;
     if (!controller.busy) throw new Error('Turn ended before review: ' + controller.error);
-    await new Promise(resolve => setImmediate(resolve));
+    await new Promise(resolve => setTimeout(resolve,1));
   }
   throw new Error('Review did not become pending.');
 }
@@ -167,7 +168,9 @@ test('changing the project before Apply executes nothing in the newly active pro
   await run;
   assert.equal(state.executions.length, 0);
   assert.match(state.controller.error, /active project changed/);
-  assert.equal(state.controller.archive.receipts[0].status, 'cancelled');
+  assert.equal(state.controller.archive.receipts[0].status, 'failed');
+  assert.equal(state.controller.archive.receipts[0].result.error.code, 'not_dispatched');
+  assert.equal(state.controller.archive.receipts[0].result.error.possiblyModified, false);
   validateArchive(state.controller.archive);
 });
 

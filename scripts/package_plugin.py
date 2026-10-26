@@ -12,6 +12,7 @@ FILES = (
     "extension/CSXS/manifest.xml", "extension/index.html", "extension/panel.css", "extension/panel.js",
     "extension/host/aelm.jsx", "extension/lib/bridge.js", "extension/lib/controller.js",
     "extension/lib/context.js", "extension/lib/history.js", "extension/lib/protocol.js", "extension/lib/transport.js", "extension/lib/settings.js",
+    "extension/lib/visuals.js", "extension/lib/image-input.js", "extension/lib/image-headers.js", "extension/lib/visible-capture.js", "extension/capture/visible-capture.ps1", "docs/visual-workflow.md",
     "scripts/install-dev.ps1", "docs/install.md", "docs/validation.md", "docs/first-milestone.md", "LICENSE",
     "README.md", "SECURITY.md", "CONTRIBUTING.md", "docs/architecture.md", "docs/assistant-conventions.md", "docs/releasing.md",
 )

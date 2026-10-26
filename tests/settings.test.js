@@ -51,7 +51,7 @@ function assertSafeError(error, sensitive = TOKEN) {
 
 test('missing files return empty preferences without creating files', t => {
   const f = fixture(t);
-  assert.deepEqual(f.read(), {baseUrl: '', model: '', source: '', houlm: null});
+  assert.deepEqual(f.read(), {baseUrl: '', model: '', source: '', houlm: null, maxCaptures: 12});
   assert.deepEqual(fs.readdirSync(f.home), []);
   assert.deepEqual(fs.readdirSync(f.local), []);
 });
@@ -60,7 +60,7 @@ test('Hou-lm supplies URL and model only, never approval or plaintext token fiel
   const f = fixture(t);
   f.hou({server_url: SERVER + '/', model_id: 'studio-test', auto_run_commands: true,
     response_wait_minutes: 30, token: TOKEN, key: TOKEN, history: [{role: 'user', content: 'private'}]});
-  assert.deepEqual(f.read(), {baseUrl: SERVER, model: 'studio-test', source: 'houlm',
+  assert.deepEqual(f.read(), {baseUrl: SERVER, model: 'studio-test', source: 'houlm', maxCaptures: 12,
     houlm: {baseUrl: SERVER, model: 'studio-test', credentialServer: SERVER}});
   assert.ok(!JSON.stringify(f.read()).includes(TOKEN));
 });
@@ -246,4 +246,12 @@ test('copied ciphertext from another server cannot supply that server key', asyn
   }}), assertSafeError);
   // Even a faulty decrypt adapter cannot bypass the plaintext server binding.
   await assert.rejects(loadHouToken(f.read().houlm, other, {env: f.env, platform: 'win32', decrypt: async () => envelope(SERVER)}), assertSafeError);
+});
+
+
+test('visual-check budget is a bounded local preference, independent of authorization', t => {
+  const f=fixture(t);f.hou({server_url:SERVER,model_id:'studio',maxCaptures:50,autoRun:true});
+  assert.equal(f.read().maxCaptures,12);
+  for(const budget of [1,12,50]){f.own({baseUrl:SERVER,maxCaptures:budget,autoRun:true,viewportAccess:true});const value=f.read();assert.equal(value.maxCaptures,budget);assert.equal(value.autoRun,undefined);assert.equal(value.viewportAccess,undefined);}
+  for(const bad of [0,51,-1,2.5,'50',null,{},true]){f.own({maxCaptures:bad});assert.equal(f.read().maxCaptures,12);}
 });

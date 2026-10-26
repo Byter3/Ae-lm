@@ -11,7 +11,7 @@ $destination = [IO.Path]::GetFullPath((Join-Path $destinationRoot 'studio.aelm')
 if (-not $destination.StartsWith($destinationRoot + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase)) { throw 'Invalid extension destination.' }
 if (-not (Test-Path -LiteralPath (Join-Path $sourceRoot 'CSXS\manifest.xml'))) { throw 'The complete Ae-lm package is required.' }
 if (Test-Path -LiteralPath $destination) { throw "Ae-lm is already installed at $destination. Keep that copy until you deliberately remove or archive it; this installer will not overwrite it." }
-$files = @('CSXS\manifest.xml','index.html','panel.css','panel.js','host\aelm.jsx','lib\bridge.js','lib\controller.js','lib\context.js','lib\history.js','lib\protocol.js','lib\transport.js','lib\settings.js')
+$files = @('CSXS\manifest.xml','index.html','panel.css','panel.js','host\aelm.jsx','lib\bridge.js','lib\controller.js','lib\context.js','lib\history.js','lib\protocol.js','lib\transport.js','lib\settings.js','lib\visuals.js','lib\image-input.js','lib\image-headers.js','lib\visible-capture.js','capture\visible-capture.ps1')
 function Assert-UnlinkedPath([string]$Path) {
     $current = [IO.Path]::GetFullPath($Path)
     while ($current) {
