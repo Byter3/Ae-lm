@@ -1,47 +1,25 @@
-# Work from reference images
+# Visual workflow
 
-Use a studio model that supports both images and tool calling. Ae-lm can compare references with the visible Composition viewer and make further edits while useful improvements remain.
+Use a vision/tool-capable model from the [shared backend](https://github.com/Byter3/studio-assistant-backend).
 
 ## Attach references
 
-Use **Attach**, drag an image into the message area, or paste an image. PNG, JPEG and WebP are supported, with up to three active references. Documents, video and arbitrary file attachments are not supported.
-
-Draft thumbnails leave the composer when Send is accepted and remain on the sent message. The assistant can keep using those references in follow-ups without another upload. **Stop using references** stops including them in future requests; **Reuse references** puts them back in the composer. Unsent drafts are not retained when the panel closes.
-
-With a reference attached, try:
-
-> Describe the reference's layout, palette and typography. Suggest how to adapt it to the active composition. Do not change the project or capture the viewer. If the image is unavailable, say so.
+**Attach**, drop or paste up to three PNG/JPEG/WebP images. Sent thumbnails leave the composer but stay active for follow-ups. **Stop using references** excludes them; **Reuse references** returns them to the composer. Unsent drafts do not survive panel closure.
 
 ## Let the assistant see the composition
 
-Enable **Viewport access**, keep AE foreground, and leave the Composition viewer visible and unobstructed. Ae-lm automatically identifies a single visible Composition viewer. If the layout is ambiguous, use **Choose view** to select an AE region manually.
+Enable **Viewport access** with AE foreground and one unobstructed Composition viewer visible. Detection is automatic; **Choose view** handles ambiguous layouts. Reselect a manual region after changing the layout.
 
-A manual selection is a fixed rectangle. Select it again after moving or resizing the window or rearranging panels. Turning Viewport access off clears the manual selection; enable it again to return to automatic detection. Both capture permission and manual selection reset when the panel opens. **Auto-run scripts** is a separate permission.
-
-Test capture before asking for edits:
-
-> Capture my only visible Composition viewer and describe what you can actually see. Do not modify anything, render, start playback or change the current frame. If the viewer cannot be identified, report that instead of capturing another pane.
-
-Expand the capture receipt to compare the image with AE. Capture reads visible pixels; it does not start a render or preview and cannot establish whether paused output is freshly evaluated. A hidden, covered or unsupported view produces an error rather than a full-desktop fallback.
+Capture reads visible pixels without rendering, playback or frame changes. It does not establish fresh evaluation. Capture permission resets on panel load and is separate from **Auto-run scripts**.
 
 ## Refine a design
 
-With a reference attached and Viewport access enabled:
+**Settings → Visual checks per task:** 12 attempts by default, adjustable to 1–50. Failed captures count; Retry keeps the task's count.
 
-> Adapt this composition toward the reference using editable AE layers and controls. Inspect the existing structure first. After changes, capture the visible Composition viewer and compare composition, spacing, colors and readability. Keep refining while useful improvements remain within my visual-check budget. Preserve the current frame; do not render or start playback. Finish with what improved and what still differs.
-
-Follow up without attaching the image again:
-
-> Keep the same reference. Improve spacing and contrast only, then check the visible result once. Preserve the current frame and existing layer structure.
-
-**Settings → Visual checks per task** defaults to 12 capture attempts and accepts 1–50. Failed capture attempts count; Retry retains the same task's count. The assistant should stop when the result is achieved, progress stalls, it needs your input, or the budget is exhausted. Increasing the limit permits more comparisons but does not guarantee a better result.
-
-Scripts still require review unless Auto-run is enabled. After a returned script error, the assistant must inspect the remaining state before proposing a separate repair. Unknown execution outcomes and persistent history-save failures stop the task. Completed commands are never replayed automatically.
+> Match the reference using editable layers and controls. Inspect the existing comp, make focused changes, capture the result and refine the largest remaining differences within the visual-check budget. Preserve the current frame; do not render or start playback. Report unresolved differences.
 
 ## Images, history and privacy
 
-Images are resized to at most 1280 pixels on the long side and 512 KiB each. Source imports are limited to 20 MiB and 30 million pixels. Only active references and the current task's latest capture accompany a model request; older captures stay in local history.
+Model images are capped at 1280 pixels/512 KiB. Only active references and the current task's latest capture are sent. Saved assets live in `.aelm/<project filename>.json.assets/`; move them with the JSON. Save As carries them forward.
 
-For a saved project, images live in `.aelm/<project filename>.json.assets/` beside its JSON history. Save As carries the required images forward. Save an unsaved project before reloading the panel if you want to retain the conversation. Copy the JSON and assets folder with the project, and treat both as private studio material.
-
-Viewer capture uses a bundled Windows helper. If studio policy blocks it, image attachments and ordinary scene tools remain available; ask your studio administrator about approving the helper. A floating CEP panel or an unusual viewer layout may need docking or manual selection. See [installation](install.md) and [security](../SECURITY.md).
+[Installation](install.md) · [Data handling](../SECURITY.md) · [Houdini equivalent](https://github.com/Byter3/Hou-lm/blob/main/docs/visual-reference.md).
